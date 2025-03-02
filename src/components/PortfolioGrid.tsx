@@ -29,7 +29,7 @@ const PortfolioGrid: React.FC<PortfolioGridProps> = ({ data }) => {
   }));
   
   // Column definitions
-  const columnDefs = [
+  const columnDefs: any[] = [
     { 
       headerName: 'Symbol', 
       field: 'symbol', 

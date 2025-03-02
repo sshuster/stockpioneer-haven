@@ -1,4 +1,3 @@
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
@@ -46,6 +45,34 @@ def init_db():
         UNIQUE(user_id, symbol)
     )
     ''')
+    
+    # Check if admin user exists, if not create it
+    cursor.execute("SELECT * FROM users WHERE username = 'admin'")
+    admin_exists = cursor.fetchone()
+    
+    if not admin_exists:
+        # Create admin user
+        hashed_password = generate_password_hash('admin')
+        cursor.execute(
+            "INSERT INTO users (username, email, password) VALUES (?, ?, ?)",
+            ('admin', 'admin@example.com', hashed_password)
+        )
+        
+        # Add some portfolio items for admin
+        admin_id = cursor.lastrowid
+        portfolio_items = [
+            ('AAPL', 'Apple Inc.', 20, 170.50),
+            ('NVDA', 'NVIDIA Corp.', 10, 450.75),
+            ('TSLA', 'Tesla Inc.', 25, 180.25),
+            ('META', 'Meta Platforms Inc.', 12, 330.80),
+            ('AMZN', 'Amazon.com Inc.', 15, 147.20)
+        ]
+        
+        for item in portfolio_items:
+            cursor.execute(
+                "INSERT INTO portfolio (user_id, symbol, name, shares, avg_price) VALUES (?, ?, ?, ?, ?)",
+                (admin_id, item[0], item[1], item[2], item[3])
+            )
     
     conn.commit()
     conn.close()

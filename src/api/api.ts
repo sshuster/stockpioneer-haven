@@ -28,7 +28,8 @@ const USE_MOCK_DATA = true;
 
 // Mock user data
 const MOCK_USERS = [
-  { id: 1, username: 'demo', email: 'demo@example.com', password: 'password' }
+  { id: 1, username: 'demo', email: 'demo@example.com', password: 'password' },
+  { id: 2, username: 'admin', email: 'admin@example.com', password: 'admin' }
 ];
 
 // Mock portfolio data
@@ -39,6 +40,13 @@ const MOCK_PORTFOLIOS = {
     { symbol: 'GOOGL', name: 'Alphabet Inc.', shares: 3, avgPrice: 138.21, currentPrice: 142.65 },
     { symbol: 'AMZN', name: 'Amazon.com Inc.', shares: 8, avgPrice: 145.68, currentPrice: 152.33 },
     { symbol: 'TSLA', name: 'Tesla Inc.', shares: 15, avgPrice: 189.25, currentPrice: 174.50 },
+  ],
+  2: [
+    { symbol: 'AAPL', name: 'Apple Inc.', shares: 20, avgPrice: 170.50, currentPrice: 182.63 },
+    { symbol: 'NVDA', name: 'NVIDIA Corp.', shares: 10, avgPrice: 450.75, currentPrice: 475.38 },
+    { symbol: 'TSLA', name: 'Tesla Inc.', shares: 25, avgPrice: 180.25, currentPrice: 174.50 },
+    { symbol: 'META', name: 'Meta Platforms Inc.', shares: 12, avgPrice: 330.80, currentPrice: 347.22 },
+    { symbol: 'AMZN', name: 'Amazon.com Inc.', shares: 15, avgPrice: 147.20, currentPrice: 152.33 },
   ]
 };
 

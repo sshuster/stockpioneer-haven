@@ -1,6 +1,30 @@
 
-// This is a mock API client - in a real implementation, 
-// you would replace these functions with actual API calls to your Flask backend
+// API client for connecting to Flask backend
+import axios from 'axios';
+
+// Create an axios instance with base URL
+const apiClient = axios.create({
+  baseURL: 'http://localhost:5000/api', // This will be your Flask server URL
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Add request interceptor to include auth token in requests
+apiClient.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// For development purposes, we'll use mock data until the Flask backend is implemented
+const USE_MOCK_DATA = true;
 
 // Mock user data
 const MOCK_USERS = [
@@ -38,58 +62,82 @@ const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 export const api = {
   // Authentication
   login: async (email: string, password: string) => {
-    await delay(800); // Simulate network delay
-    
-    const user = MOCK_USERS.find(u => 
-      u.email === email && u.password === password
-    );
-    
-    if (!user) {
-      throw new Error('Invalid credentials');
+    if (USE_MOCK_DATA) {
+      await delay(800); // Simulate network delay
+      
+      const user = MOCK_USERS.find(u => 
+        u.email === email && u.password === password
+      );
+      
+      if (!user) {
+        throw new Error('Invalid credentials');
+      }
+      
+      // Strip password before returning
+      const { password: _, ...userWithoutPassword } = user;
+      
+      return {
+        token: 'mock-jwt-token',
+        user: userWithoutPassword
+      };
+    } else {
+      // Real API call to Flask backend
+      const response = await apiClient.post('/auth/login', { email, password });
+      return response.data;
     }
-    
-    // Strip password before returning
-    const { password: _, ...userWithoutPassword } = user;
-    
-    return {
-      token: 'mock-jwt-token',
-      user: userWithoutPassword
-    };
   },
   
   register: async (username: string, email: string, password: string) => {
-    await delay(800); // Simulate network delay
-    
-    // Check if user already exists
-    if (MOCK_USERS.some(u => u.email === email)) {
-      throw new Error('User already exists');
+    if (USE_MOCK_DATA) {
+      await delay(800); // Simulate network delay
+      
+      // Check if user already exists
+      if (MOCK_USERS.some(u => u.email === email)) {
+        throw new Error('User already exists');
+      }
+      
+      // In a real implementation, this would create a user in your database
+      const newUser = {
+        id: MOCK_USERS.length + 1,
+        username,
+        email,
+        password
+      };
+      
+      MOCK_USERS.push(newUser);
+      
+      return { success: true };
+    } else {
+      // Real API call to Flask backend
+      const response = await apiClient.post('/auth/register', { username, email, password });
+      return response.data;
     }
-    
-    // In a real implementation, this would create a user in your database
-    const newUser = {
-      id: MOCK_USERS.length + 1,
-      username,
-      email,
-      password
-    };
-    
-    MOCK_USERS.push(newUser);
-    
-    return { success: true };
   },
   
   // Portfolio
   getUserPortfolio: async (userId: number) => {
-    await delay(600);
-    
-    const portfolio = MOCK_PORTFOLIOS[userId as keyof typeof MOCK_PORTFOLIOS] || [];
-    
-    return portfolio;
+    if (USE_MOCK_DATA) {
+      await delay(600);
+      
+      const portfolio = MOCK_PORTFOLIOS[userId as keyof typeof MOCK_PORTFOLIOS] || [];
+      
+      return portfolio;
+    } else {
+      // Real API call to Flask backend
+      const response = await apiClient.get(`/portfolio/${userId}`);
+      return response.data;
+    }
   },
   
   // Market data
   getMarketData: async () => {
-    await delay(500);
-    return MOCK_MARKET_DATA;
+    if (USE_MOCK_DATA) {
+      await delay(500);
+      return MOCK_MARKET_DATA;
+    } else {
+      // Real API call to Flask backend
+      const response = await apiClient.get('/market/data');
+      return response.data;
+    }
   }
 };

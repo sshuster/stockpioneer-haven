@@ -137,6 +137,90 @@ export const api = {
     }
   },
   
+  addStock: async (userId: number, stockData: { symbol: string, name: string, shares: number, avgPrice: number }) => {
+    if (USE_MOCK_DATA) {
+      await delay(600);
+      
+      const portfolio = MOCK_PORTFOLIOS[userId as keyof typeof MOCK_PORTFOLIOS];
+      
+      if (!portfolio) {
+        throw new Error('User portfolio not found');
+      }
+      
+      // Check if stock already exists in portfolio
+      const existingStockIndex = portfolio.findIndex(stock => stock.symbol === stockData.symbol);
+      
+      if (existingStockIndex !== -1) {
+        // Update existing stock
+        const existingStock = portfolio[existingStockIndex];
+        const totalShares = existingStock.shares + stockData.shares;
+        
+        // Calculate new average price (weighted average)
+        const existingValue = existingStock.shares * existingStock.avgPrice;
+        const newValue = stockData.shares * stockData.avgPrice;
+        const newAvgPrice = (existingValue + newValue) / totalShares;
+        
+        portfolio[existingStockIndex] = {
+          ...existingStock,
+          shares: totalShares,
+          avgPrice: newAvgPrice
+        };
+      } else {
+        // Add new stock
+        const marketData = MOCK_MARKET_DATA.find(stock => stock.symbol === stockData.symbol);
+        
+        portfolio.push({
+          ...stockData,
+          currentPrice: marketData ? marketData.price : stockData.avgPrice
+        });
+      }
+      
+      return { success: true, message: 'Stock added successfully' };
+    } else {
+      // Real API call to Flask backend
+      const response = await apiClient.post(`/portfolio/${userId}/add`, stockData);
+      return response.data;
+    }
+  },
+  
+  removeStock: async (userId: number, stockData: { symbol: string, shares: number }) => {
+    if (USE_MOCK_DATA) {
+      await delay(600);
+      
+      const portfolio = MOCK_PORTFOLIOS[userId as keyof typeof MOCK_PORTFOLIOS];
+      
+      if (!portfolio) {
+        throw new Error('User portfolio not found');
+      }
+      
+      // Find the stock in the portfolio
+      const stockIndex = portfolio.findIndex(stock => stock.symbol === stockData.symbol);
+      
+      if (stockIndex === -1) {
+        throw new Error('Stock not found in portfolio');
+      }
+      
+      const existingStock = portfolio[stockIndex];
+      
+      if (stockData.shares >= existingStock.shares) {
+        // Remove the stock entirely
+        portfolio.splice(stockIndex, 1);
+      } else {
+        // Update the shares
+        portfolio[stockIndex] = {
+          ...existingStock,
+          shares: existingStock.shares - stockData.shares
+        };
+      }
+      
+      return { success: true, message: 'Stock removed successfully' };
+    } else {
+      // Real API call to Flask backend
+      const response = await apiClient.post(`/portfolio/${userId}/remove`, stockData);
+      return response.data;
+    }
+  },
+  
   // Market data
   getMarketData: async () => {
     if (USE_MOCK_DATA) {

@@ -1,3 +1,4 @@
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import sqlite3
@@ -202,7 +203,12 @@ def get_portfolio(current_user, user_id):
                 ('MSFT', 325.42),
                 ('GOOGL', 142.65),
                 ('AMZN', 152.33),
-                ('TSLA', 174.50)
+                ('TSLA', 174.50),
+                ('META', 347.22),
+                ('NVDA', 475.38),
+                ('BRK.B', 408.15),
+                ('JPM', 183.27),
+                ('V', 235.45)
         ) AS m(symbol, current_price)
         ON p.symbol = m.symbol
         WHERE p.user_id = ?
@@ -212,6 +218,135 @@ def get_portfolio(current_user, user_id):
     conn.close()
     
     return jsonify(portfolio), 200
+
+@app.route('/api/portfolio/<int:user_id>/add', methods=['POST'])
+@token_required
+def add_stock(current_user, user_id):
+    # Check if the current user is modifying their own portfolio
+    if current_user['id'] != user_id:
+        return jsonify({'message': 'Unauthorized access'}), 403
+    
+    data = request.get_json()
+    
+    if not data or not data.get('symbol') or not data.get('name') or not data.get('shares') or not data.get('avgPrice'):
+        return jsonify({'message': 'Missing required fields'}), 400
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Check if the stock already exists in the portfolio
+        cursor.execute(
+            "SELECT * FROM portfolio WHERE user_id = ? AND symbol = ?",
+            (user_id, data.get('symbol'))
+        )
+        existing_stock = cursor.fetchone()
+        
+        if existing_stock:
+            # Update existing stock (add shares and recalculate average price)
+            cursor.execute(
+                """
+                SELECT shares, avg_price FROM portfolio 
+                WHERE user_id = ? AND symbol = ?
+                """,
+                (user_id, data.get('symbol'))
+            )
+            current = cursor.fetchone()
+            current_shares = current[0]
+            current_avg_price = current[1]
+            
+            new_shares = current_shares + float(data.get('shares'))
+            
+            # Calculate new average price (weighted average)
+            total_current_value = current_shares * current_avg_price
+            total_new_value = float(data.get('shares')) * float(data.get('avgPrice'))
+            new_avg_price = (total_current_value + total_new_value) / new_shares
+            
+            cursor.execute(
+                """
+                UPDATE portfolio 
+                SET shares = ?, avg_price = ? 
+                WHERE user_id = ? AND symbol = ?
+                """,
+                (new_shares, new_avg_price, user_id, data.get('symbol'))
+            )
+        else:
+            # Add new stock
+            cursor.execute(
+                """
+                INSERT INTO portfolio (user_id, symbol, name, shares, avg_price) 
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id, 
+                    data.get('symbol'), 
+                    data.get('name'),
+                    float(data.get('shares')),
+                    float(data.get('avgPrice'))
+                )
+            )
+        
+        conn.commit()
+        return jsonify({'message': 'Stock added successfully'}), 201
+    
+    except Exception as e:
+        print(f"Error adding stock: {e}")
+        return jsonify({'message': f'Error adding stock: {str(e)}'}), 500
+    
+    finally:
+        conn.close()
+
+@app.route('/api/portfolio/<int:user_id>/remove', methods=['POST'])
+@token_required
+def remove_stock(current_user, user_id):
+    # Check if the current user is modifying their own portfolio
+    if current_user['id'] != user_id:
+        return jsonify({'message': 'Unauthorized access'}), 403
+    
+    data = request.get_json()
+    
+    if not data or not data.get('symbol') or not data.get('shares'):
+        return jsonify({'message': 'Missing required fields'}), 400
+    
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    
+    try:
+        # Check if the stock exists in the portfolio
+        cursor.execute(
+            "SELECT shares FROM portfolio WHERE user_id = ? AND symbol = ?",
+            (user_id, data.get('symbol'))
+        )
+        result = cursor.fetchone()
+        
+        if not result:
+            return jsonify({'message': 'Stock not found in portfolio'}), 404
+        
+        current_shares = result[0]
+        shares_to_remove = float(data.get('shares'))
+        
+        if shares_to_remove >= current_shares:
+            # If all shares are being removed, delete the stock
+            cursor.execute(
+                "DELETE FROM portfolio WHERE user_id = ? AND symbol = ?",
+                (user_id, data.get('symbol'))
+            )
+        else:
+            # Otherwise, update the shares
+            new_shares = current_shares - shares_to_remove
+            cursor.execute(
+                "UPDATE portfolio SET shares = ? WHERE user_id = ? AND symbol = ?",
+                (new_shares, user_id, data.get('symbol'))
+            )
+        
+        conn.commit()
+        return jsonify({'message': 'Stock updated successfully'}), 200
+    
+    except Exception as e:
+        return jsonify({'message': f'Error removing stock: {str(e)}'}), 500
+    
+    finally:
+        conn.close()
 
 @app.route('/api/market/data', methods=['GET'])
 def get_market_data():

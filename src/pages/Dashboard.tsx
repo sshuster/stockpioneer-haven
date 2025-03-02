@@ -5,20 +5,40 @@ import { useAuth } from '../context/AuthContext';
 import Navbar from '../components/Navbar';
 import PortfolioGrid from '../components/PortfolioGrid';
 import StockCard from '../components/StockCard';
+import AddStockForm from '../components/AddStockForm';
+import RemoveStockForm from '../components/RemoveStockForm';
 import { api } from '../api/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { PlusCircle, MinusCircle } from 'lucide-react';
 
 const Dashboard = () => {
   const { user, isAuthenticated } = useAuth();
   const [portfolio, setPortfolio] = useState<any[]>([]);
   const [marketData, setMarketData] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('portfolio');
+  const [addStockOpen, setAddStockOpen] = useState(false);
+  const [removeStockOpen, setRemoveStockOpen] = useState(false);
+  
+  const fetchPortfolio = async () => {
+    if (!user?.id) return;
+    
+    try {
+      const portfolioData = await api.getUserPortfolio(user.id);
+      setPortfolio(portfolioData);
+    } catch (error) {
+      console.error('Error fetching portfolio data:', error);
+    }
+  };
   
   useEffect(() => {
     const fetchData = async () => {
       if (!user?.id) return;
       
       try {
+        setLoading(true);
         const [portfolioData, marketInfo] = await Promise.all([
           api.getUserPortfolio(user.id),
           api.getMarketData()
@@ -64,11 +84,50 @@ const Dashboard = () => {
       <div className="pt-24 pb-12 px-6">
         <div className="container mx-auto animate-fade-in">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold">Welcome, {user?.username}</h1>
-            <p className="text-muted-foreground mt-2">
-              Here's an overview of your portfolio and market performance
-            </p>
+          <div className="mb-8 flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold">Welcome, {user?.username}</h1>
+              <p className="text-muted-foreground mt-2">
+                Here's an overview of your portfolio and market performance
+              </p>
+            </div>
+            
+            {activeTab === 'portfolio' && (
+              <div className="flex gap-2">
+                <Dialog open={addStockOpen} onOpenChange={setAddStockOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Add Stock
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <AddStockForm onSuccess={() => {
+                      fetchPortfolio();
+                      setAddStockOpen(false);
+                    }} />
+                  </DialogContent>
+                </Dialog>
+
+                <Dialog open={removeStockOpen} onOpenChange={setRemoveStockOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline">
+                      <MinusCircle className="mr-2 h-4 w-4" />
+                      Remove Stock
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[500px]">
+                    <RemoveStockForm 
+                      portfolio={portfolio} 
+                      onSuccess={() => {
+                        fetchPortfolio();
+                        setRemoveStockOpen(false);
+                      }} 
+                    />
+                  </DialogContent>
+                </Dialog>
+              </div>
+            )}
           </div>
           
           {/* Portfolio Summary */}
@@ -99,7 +158,11 @@ const Dashboard = () => {
           </div>
           
           {/* Main Content */}
-          <Tabs defaultValue="portfolio" className="w-full">
+          <Tabs 
+            value={activeTab} 
+            onValueChange={setActiveTab}
+            className="w-full"
+          >
             <TabsList className="mb-8">
               <TabsTrigger value="portfolio">Portfolio</TabsTrigger>
               <TabsTrigger value="market">Market</TabsTrigger>
@@ -109,6 +172,15 @@ const Dashboard = () => {
               {loading ? (
                 <div className="text-center py-12">
                   <p>Loading portfolio data...</p>
+                </div>
+              ) : portfolio.length === 0 ? (
+                <div className="text-center py-12 glass rounded-lg">
+                  <h3 className="text-xl font-medium mb-4">Your portfolio is empty</h3>
+                  <p className="text-muted-foreground mb-6">Add your first stock to get started</p>
+                  <Button onClick={() => setAddStockOpen(true)}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Add Stock
+                  </Button>
                 </div>
               ) : (
                 <PortfolioGrid data={portfolio} />
@@ -124,6 +196,10 @@ const Dashboard = () => {
                     name={stock.name}
                     price={stock.price}
                     change={stock.change}
+                    onClick={() => {
+                      setActiveTab('portfolio');
+                      setAddStockOpen(true);
+                    }}
                   />
                 ))}
               </div>
